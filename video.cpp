@@ -9,6 +9,7 @@
 #include "SepiaFilter.h"
 #include "VignetteFilter.h"
 #include "BloomFilter.h"
+#include "PixelationFilter.h"
 
 int main() 
 {
@@ -38,7 +39,8 @@ int main()
     // processor.addFilter(new GrayscaleFilter());
     // processor.addFilter(new SepiaFilter());
     // processor.addFilter(new VignetteFilter(1.0f, 1.0f));
-    processor.addFilter(new BloomFilter(w, h, c, 180.0f, 5.0f));
+    // processor.addFilter(new BloomFilter(w, h, c, 180.0f, 5.0f));
+    processor.addFilter(new PixelationFilter(15));
 
     fg >> fg_frame; bg >> bg_frame;
     if(fg_frame.size() != bg_frame.size()) 
