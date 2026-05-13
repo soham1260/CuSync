@@ -2,10 +2,13 @@
 #include "VideoFilter.h"
 
 #define BLUR_RADIUS 7
+#define MAX_BLUR_INSTANCES 5
 
 class GaussianBlurFilter : public VideoFilter 
 {
     private:
+        static int nextInstanceId; // Each filter that internally used Gaussian blur gets seprate copy of blur weights indexed by instanceId
+        int instanceId;
         float sigma;
         unsigned char* d_temp;
         int width, height, channels;

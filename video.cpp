@@ -8,6 +8,7 @@
 #include "GrayscaleFilter.h"
 #include "SepiaFilter.h"
 #include "VignetteFilter.h"
+#include "BloomFilter.h"
 
 int main() 
 {
@@ -34,8 +35,10 @@ int main()
     processor.addFilter(new ChromaKeyFilter(120.0f, 30.0f, 80.0f, 0.3f, 0.3f));
     
     // processor.addFilter(new GrayscaleFilter());
+    // processor.addFilter(new GrayscaleFilter());
     // processor.addFilter(new SepiaFilter());
-    processor.addFilter(new VignetteFilter(1.0f, 1.0f));
+    // processor.addFilter(new VignetteFilter(1.0f, 1.0f));
+    processor.addFilter(new BloomFilter(w, h, c, 180.0f, 5.0f));
 
     fg >> fg_frame; bg >> bg_frame;
     if(fg_frame.size() != bg_frame.size()) 

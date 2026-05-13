@@ -2,9 +2,11 @@
 
 #define TILE_SIZE 16
 
-__constant__ float c_blurWeights[BLUR_RADIUS * 2 + 1];
+__constant__ float c_blurWeights[MAX_BLUR_INSTANCES][BLUR_RADIUS * 2 + 1];
 
-__global__ void blurHorizontalKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels) 
+int GaussianBlurFilter::nextInstanceId = 0;
+
+__global__ void blurHorizontalKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels, int instanceId) 
 {
     // For every ROW in block, load the pixel values of that row + neighbouring pixels
     __shared__ float s_r[TILE_SIZE][TILE_SIZE + 2 * BLUR_RADIUS];
@@ -59,7 +61,7 @@ __global__ void blurHorizontalKernel(unsigned char* d_in, unsigned char* d_out, 
         float sum_r = 0.0f, sum_g = 0.0f, sum_b = 0.0f;
         for (int i = -BLUR_RADIUS; i <= BLUR_RADIUS; i++) 
         {
-            float weight = c_blurWeights[i + BLUR_RADIUS]; // OPTIMIZED CONSTANT MEMORY ACCESS
+            float weight = c_blurWeights[instanceId][i + BLUR_RADIUS]; // OPTIMIZED CONSTANT MEMORY ACCESS
             sum_r += s_r[ty][tx + BLUR_RADIUS + i] * weight; // OPTIMIZED SHARED MEMORY ACCESS
             sum_g += s_g[ty][tx + BLUR_RADIUS + i] * weight;
             sum_b += s_b[ty][tx + BLUR_RADIUS + i] * weight;
@@ -73,7 +75,7 @@ __global__ void blurHorizontalKernel(unsigned char* d_in, unsigned char* d_out, 
 }
 
 // Same as horizontal but with vertical access pattern
-__global__ void blurVerticalKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels) 
+__global__ void blurVerticalKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels, int instanceId) 
 {
     __shared__ float s_r[TILE_SIZE + 2 * BLUR_RADIUS][TILE_SIZE];
     __shared__ float s_g[TILE_SIZE + 2 * BLUR_RADIUS][TILE_SIZE];
@@ -124,7 +126,7 @@ __global__ void blurVerticalKernel(unsigned char* d_in, unsigned char* d_out, in
         float sum_r = 0.0f, sum_g = 0.0f, sum_b = 0.0f;
         for (int i = -BLUR_RADIUS; i <= BLUR_RADIUS; i++) 
         {
-            float weight = c_blurWeights[i + BLUR_RADIUS];
+            float weight = c_blurWeights[instanceId][i + BLUR_RADIUS];
             sum_r += s_r[ty + BLUR_RADIUS + i][tx] * weight;
             sum_g += s_g[ty + BLUR_RADIUS + i][tx] * weight;
             sum_b += s_b[ty + BLUR_RADIUS + i][tx] * weight;
@@ -150,7 +152,7 @@ void GaussianBlurFilter::updateWeights()
         blurWeights[i] /= sum; // Normalize
     }
     
-    cudaMemcpyToSymbol(c_blurWeights, blurWeights, (BLUR_RADIUS * 2 + 1) * sizeof(float));
+    cudaMemcpyToSymbol(c_blurWeights, blurWeights, (BLUR_RADIUS * 2 + 1) * sizeof(float), instanceId * (BLUR_RADIUS * 2 + 1) * sizeof(float));
 }
 
 void GaussianBlurFilter::setSigma(float new_sigma)
@@ -159,8 +161,10 @@ void GaussianBlurFilter::setSigma(float new_sigma)
     updateWeights();
 }
 
-GaussianBlurFilter::GaussianBlurFilter(int width, int height, int channels, float sigma, bool processBackground) : width(width), height(height), channels(channels), sigma(sigma), processBackground(processBackground), d_temp(nullptr) 
+GaussianBlurFilter::GaussianBlurFilter(int width, int height, int channels, float sigma, bool processBackground) : width(width), height(height), channels(channels), sigma(sigma), processBackground(processBackground), d_temp(NULL) 
 {
+    instanceId = nextInstanceId % MAX_BLUR_INSTANCES;
+    nextInstanceId++;
     cudaMalloc(&d_temp, width * height * channels * sizeof(unsigned char));
     updateWeights();
 }
@@ -182,6 +186,6 @@ void GaussianBlurFilter::process(unsigned char* d_fg, unsigned char* d_bg, int w
     dim3 threads(TILE_SIZE, TILE_SIZE);
     dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 
-    blurHorizontalKernel<<<blocks, threads, 0, stream>>>(target, d_temp, width, height, channels);
-    blurVerticalKernel<<<blocks, threads, 0, stream>>>(d_temp, target, width, height, channels);
+    blurHorizontalKernel<<<blocks, threads, 0, stream>>>(target, d_temp, width, height, channels, instanceId);
+    blurVerticalKernel<<<blocks, threads, 0, stream>>>(d_temp, target, width, height, channels, instanceId);
 }
