@@ -34,7 +34,12 @@ int main()
 
     VideoProcessor processor(w, h, c);
     
-    processor.addFilter(new GaussianBlurFilter(w, h, c, 3.0f, true));
+    cv::namedWindow("Video Frame", cv::WINDOW_AUTOSIZE);
+    cv::createTrackbar("Blur Sigma", "Video Frame", nullptr, 100);
+    cv::setTrackbarPos("Blur Sigma", "Video Frame", 30);
+
+    GaussianBlurFilter* blurFilter = new GaussianBlurFilter(w, h, c, 3.0f, true);
+    processor.addFilter(blurFilter);
     processor.addFilter(new ChromaKeyFilter(120.0f, 30.0f, 80.0f, 0.3f, 0.3f));
     
     // processor.addFilter(new GrayscaleFilter());
@@ -44,7 +49,7 @@ int main()
     // processor.addFilter(new BloomFilter(w, h, c, 180.0f, 5.0f));
     // processor.addFilter(new PixelationFilter(15));
     // processor.addFilter(new MotionBlurFilter(w, h, c, 0.8f));
-    processor.addFilter(new FisheyeFilter(w, h, c, 0.5f));
+    // processor.addFilter(new FisheyeFilter(w, h, c, 0.5f));
 
     fg >> fg_frame; bg >> bg_frame;
     if(fg_frame.size() != bg_frame.size()) 
@@ -62,20 +67,30 @@ int main()
     auto s = std::chrono::high_resolution_clock::now();
     
     auto next_frame_target = std::chrono::steady_clock::now() + frame_duration;
+    bool isPaused = false;
 
     while (1) 
     {
-        fg >> fg_frame; 
-        bg >> bg_frame;
-        
-        if (fg_frame.empty()) break;
-        if (bg_frame.empty()) 
+        // Read next frame only if not paused
+        if (!isPaused) 
         {
-            bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-            bg >> bg_frame; 
+            fg >> fg_frame; 
+            bg >> bg_frame;
+            
+            if (fg_frame.empty()) break;
+            if (bg_frame.empty()) 
+            {
+                bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+                bg >> bg_frame; 
+            }
+            if (fg_frame.size() != bg_frame.size()) 
+                cv::resize(bg_frame, bg_frame, fg_frame.size());
         }
-        if (fg_frame.size() != bg_frame.size()) 
-            cv::resize(bg_frame, bg_frame, fg_frame.size());
+
+        int current_blur = cv::getTrackbarPos("Blur Sigma", "Video Frame");
+        float sigma = (float)current_blur / 10.0f;
+        if (sigma < 0.1f) sigma = 0.1f;
+        blurFilter->setSigma(sigma);
 
         processor.processFrameAsync(fg_frame.data, bg_frame.data, queueStream);
 
@@ -84,11 +99,20 @@ int main()
         cv::Mat output(h, w, CV_8UC3, processed_data);
         cv::imshow("Video Frame", output);
 
-        if (cv::waitKey(1) >= 0) break;
+        int key = cv::waitKey(1);
+        if (key == 27 || key == 'q') break;
+        if (key == 'p' || key == ' ') 
+            isPaused = !isPaused;
 
-        std::this_thread::sleep_until(next_frame_target);
-
-        next_frame_target += frame_duration;
+        if (!isPaused) 
+        {
+            std::this_thread::sleep_until(next_frame_target);
+            next_frame_target += frame_duration;
+        } 
+        else 
+        {
+            next_frame_target = std::chrono::steady_clock::now() + frame_duration;
+        }
 
         displayStream = (displayStream + 1) % 3;
         queueStream = (queueStream + 1) % 3; 
