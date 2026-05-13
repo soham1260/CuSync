@@ -10,6 +10,7 @@
 #include "VignetteFilter.h"
 #include "BloomFilter.h"
 #include "PixelationFilter.h"
+#include "MotionBlurFilter.h"
 
 int main() 
 {
@@ -40,7 +41,8 @@ int main()
     // processor.addFilter(new SepiaFilter());
     // processor.addFilter(new VignetteFilter(1.0f, 1.0f));
     // processor.addFilter(new BloomFilter(w, h, c, 180.0f, 5.0f));
-    processor.addFilter(new PixelationFilter(15));
+    // processor.addFilter(new PixelationFilter(15));
+    processor.addFilter(new MotionBlurFilter(w, h, c, 0.5f));
 
     fg >> fg_frame; bg >> bg_frame;
     if(fg_frame.size() != bg_frame.size()) 
