@@ -11,10 +11,12 @@ class GaussianBlurFilter : public VideoFilter
         int width, height, channels;
         bool processBackground;
         float blurWeights[BLUR_RADIUS * 2 + 1];
+        void updateWeights();
 
     public:
         GaussianBlurFilter(int width, int height, int channels, float sigma = 3.0f, bool processBackground = false);
         ~GaussianBlurFilter();
 
+        void setSigma(float new_sigma);
         void process(unsigned char* d_fg, unsigned char* d_bg, int width, int height, int channels, cudaStream_t stream);
 };

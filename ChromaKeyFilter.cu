@@ -2,8 +2,10 @@
 #include <device_launch_parameters.h>
 #include <cmath>
 
+ChromaKeyFilter::ChromaKeyFilter(float targetHue, float innerLimit, float outerLimit, float saturationThresh, float valueThresh) : targetHue(targetHue), innerLimit(innerLimit), outerLimit(outerLimit), saturationThresh(saturationThresh), valueThresh(valueThresh) {}
+
 // https://math.stackexchange.com/questions/556341/rgb-to-hsv-color-conversion-algorithm
-__global__ void processPixelKernel(unsigned char* d_image, unsigned char* d_bg, int width, int height, int channels) 
+__global__ void processPixelKernel(unsigned char* d_image, unsigned char* d_bg, int width, int height, int channels, float targetHue, float innerLimit, float outerLimit, float sThresh, float vThresh) 
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -33,13 +35,10 @@ __global__ void processPixelKernel(unsigned char* d_image, unsigned char* d_bg, 
         }
         if (h < 0) h += 360.0f;
 
-        float targetHue = 120.0f;
         float dist = fabsf(h - targetHue);
-        float innerLimit = 30.0f; // Range for chroma key
-        float outerLimit = 80.0f; // Range for blend
         float alpha = 1.0f;
 
-        if (dist < outerLimit && s > 0.3f && v > 0.3f) 
+        if (dist < outerLimit && s > sThresh && v > vThresh) 
         {
             alpha = (dist - innerLimit) / (outerLimit - innerLimit);
             if (alpha < 0.0f) alpha = 0.0f;
@@ -57,5 +56,5 @@ void ChromaKeyFilter::process(unsigned char* d_fg, unsigned char* d_bg, int widt
     dim3 threads(16, 16);
     dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 
-    processPixelKernel<<<blocks, threads, 0, stream>>>(d_fg, d_bg, width, height, channels);
+        processPixelKernel<<<blocks, threads, 0, stream>>>(d_fg, d_bg, width, height, channels, targetHue, innerLimit, outerLimit, saturationThresh, valueThresh);
 }

@@ -137,11 +137,8 @@ __global__ void blurVerticalKernel(unsigned char* d_in, unsigned char* d_out, in
     }
 }
 
-GaussianBlurFilter::GaussianBlurFilter(int width, int height, int channels, float sigma, bool processBackground) : width(width), height(height), channels(channels), sigma(sigma), processBackground(processBackground), d_temp(nullptr) 
+void GaussianBlurFilter::updateWeights()
 {
-    
-    cudaMalloc(&d_temp, width * height * channels * sizeof(unsigned char));
-
     float sum = 0.0f;
     for (int i = -BLUR_RADIUS; i <= BLUR_RADIUS; i++) 
     {
@@ -154,6 +151,18 @@ GaussianBlurFilter::GaussianBlurFilter(int width, int height, int channels, floa
     }
     
     cudaMemcpyToSymbol(c_blurWeights, blurWeights, (BLUR_RADIUS * 2 + 1) * sizeof(float));
+}
+
+void GaussianBlurFilter::setSigma(float new_sigma)
+{
+    sigma = new_sigma;
+    updateWeights();
+}
+
+GaussianBlurFilter::GaussianBlurFilter(int width, int height, int channels, float sigma, bool processBackground) : width(width), height(height), channels(channels), sigma(sigma), processBackground(processBackground), d_temp(nullptr) 
+{
+    cudaMalloc(&d_temp, width * height * channels * sizeof(unsigned char));
+    updateWeights();
 }
 
 GaussianBlurFilter::~GaussianBlurFilter() 

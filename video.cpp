@@ -6,7 +6,8 @@
 #include "GaussianBlurFilter.h"
 #include "ChromaKeyFilter.h"
 
-int main() {
+int main() 
+{
     cv::VideoCapture fg("../../fg.mp4");
     cv::VideoCapture bg("../../bg.mp4");
     
@@ -25,8 +26,9 @@ int main() {
     int c = fg_frame.channels();
 
     VideoProcessor processor(w, h, c);
+    
     processor.addFilter(new GaussianBlurFilter(w, h, c, 3.0f, true));
-    processor.addFilter(new ChromaKeyFilter());
+    processor.addFilter(new ChromaKeyFilter(120.0f, 30.0f, 80.0f, 0.3f, 0.3f));
 
     fg >> fg_frame; bg >> bg_frame;
     if(fg_frame.size() != bg_frame.size()) 
