@@ -40,3 +40,17 @@ void VignetteFilter::process(unsigned char* d_fg, unsigned char* d_bg, int width
 
     vignetteKernel<<<blocks, threads, 0, stream>>>(d_fg, width, height, channels, radius, intensity);
 }
+
+void VignetteFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("vignette_radius");
+    if (it != params.end())
+    {
+        setRadius(it->second);
+    }
+    it = params.find("vignette_intensity");
+    if (it != params.end())
+    {
+        setIntensity(it->second);
+    }
+}

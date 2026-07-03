@@ -189,3 +189,12 @@ void GaussianBlurFilter::process(unsigned char* d_fg, unsigned char* d_bg, int w
     blurHorizontalKernel<<<blocks, threads, 0, stream>>>(target, d_temp, width, height, channels, instanceId);
     blurVerticalKernel<<<blocks, threads, 0, stream>>>(d_temp, target, width, height, channels, instanceId);
 }
+
+void GaussianBlurFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("gaussian_sigma");
+    if (it != params.end())
+    {
+        setSigma(it->second);
+    }
+}

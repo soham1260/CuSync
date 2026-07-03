@@ -66,3 +66,12 @@ void MotionBlurFilter::setTrailStrength(float strength)
 { 
     trailStrength = strength; 
 }
+
+void MotionBlurFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("motion_blur_trailStrength");
+    if (it != params.end())
+    {
+        setTrailStrength(it->second);
+    }
+}

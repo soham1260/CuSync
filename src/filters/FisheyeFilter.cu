@@ -66,3 +66,12 @@ void FisheyeFilter::setDistortion(float d)
 { 
     distortion = d; 
 }
+
+void FisheyeFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("fisheye_distortion");
+    if (it != params.end())
+    {
+        setDistortion(it->second);
+    }
+}

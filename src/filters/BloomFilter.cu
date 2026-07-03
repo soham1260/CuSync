@@ -1,5 +1,5 @@
 #include "BloomFilter.h"
-
+#include "GaussianBlurFilter.h"
 __global__ void brightPassKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels, float threshold) 
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -81,4 +81,18 @@ void BloomFilter::process(unsigned char* d_fg, unsigned char* d_bg, int width, i
     // cudaMemcpyAsync(d_fg, d_brightPass, width * height * channels * sizeof(unsigned char), cudaMemcpyDeviceToDevice, stream);
     // Add blurred bright areas back to original
     blendKernel<<<blocks, threads, 0, stream>>>(d_fg, d_brightPass, width, height, channels);
+}
+
+void BloomFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("bloom_threshold");
+    if (it != params.end())
+    {
+        setThreshold(it->second);
+    }
+    it = params.find("bloom_sigma");
+    if (it != params.end())
+    {
+        setSigma(it->second);
+    }
 }

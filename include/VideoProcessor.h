@@ -2,7 +2,7 @@
 #include <vector>
 
 #include <cuda_runtime.h>
-#include "VideoFilter.h"
+#include "./filters/VideoFilter.h"
 
 class VideoProcessor 
 {

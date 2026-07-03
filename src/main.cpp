@@ -90,7 +90,7 @@ int main()
         int current_blur = cv::getTrackbarPos("Blur Sigma", "Video Frame");
         float sigma = (float)current_blur / 10.0f;
         if (sigma < 0.1f) sigma = 0.1f;
-        blurFilter->setSigma(sigma);
+        blurFilter->updateParameters({{"gaussian_sigma", sigma}});
 
         processor.processFrameAsync(fg_frame.data, bg_frame.data, queueStream);
 

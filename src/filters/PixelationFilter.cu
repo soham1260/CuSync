@@ -38,3 +38,12 @@ void PixelationFilter::setBlockSize(int size)
 }
 
 PixelationFilter::PixelationFilter(int blockSize) : blockSize(blockSize) {};
+
+void PixelationFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("pixelation_blockSize");
+    if (it != params.end())
+    {
+        setBlockSize((int)it->second);
+    }
+}

@@ -58,3 +58,32 @@ void ChromaKeyFilter::process(unsigned char* d_fg, unsigned char* d_bg, int widt
 
         processPixelKernel<<<blocks, threads, 0, stream>>>(d_fg, d_bg, width, height, channels, targetHue, innerLimit, outerLimit, saturationThresh, valueThresh);
 }
+
+void ChromaKeyFilter::updateParameters(const std::unordered_map<std::string, float>& params)
+{
+    auto it = params.find("chroma_key_targetHue");
+    if (it != params.end())
+    {
+        setTargetHue(it->second);
+    }
+    it = params.find("chroma_key_innerLimit");
+    if (it != params.end())
+    {
+        setInnerLimit(it->second);
+    }
+    it = params.find("chroma_key_outerLimit");
+    if (it != params.end())
+    {
+        setOuterLimit(it->second);
+    }
+    it = params.find("chroma_key_saturationThresh");
+    if (it != params.end())
+    {
+        setSaturationThreshold(it->second);
+    }
+    it = params.find("chroma_key_valueThresh");
+    if (it != params.end())
+    {
+        setValueThreshold(it->second);
+    }
+}

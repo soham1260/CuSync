@@ -20,4 +20,5 @@ class ChromaKeyFilter : public VideoFilter
         void setSaturationThreshold(float thresh) { saturationThresh = thresh; }
         void setValueThreshold(float thresh) { valueThresh = thresh; }
         void process(unsigned char* d_fg, unsigned char* d_bg, int width, int height, int channels, cudaStream_t stream);
+        void updateParameters(const std::unordered_map<std::string, float>& params) override;
 };
