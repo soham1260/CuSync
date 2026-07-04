@@ -1,4 +1,4 @@
-#include "PixelationFilter.h"
+#include "../include/filters/PixelationFilter.h"
 
 __global__ void pixelationKernel(unsigned char* d_image, int width, int height, int channels, int blockSize) 
 {

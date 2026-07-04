@@ -13,20 +13,74 @@
 #include "MotionBlurFilter.h"
 #include "FisheyeFilter.h"
 
-int main() 
+void onBlurTrackbar(int pos, void* userdata) 
 {
-    cv::VideoCapture fg("../../assets/fg.mp4");
-    cv::VideoCapture bg("../../assets/bg.mp4");
-    
-    if (!fg.isOpened() || !bg.isOpened()) return -1;
+    if (userdata) 
+    {
+        GaussianBlurFilter* blurFilter = static_cast<GaussianBlurFilter*>(userdata);
+        float sigma = (float)pos / 10.0f;
+        if (sigma < 0.1f) sigma = 0.1f;
+        blurFilter->updateParameters({{"gaussian_sigma", sigma}});
+    }
+}
+
+int main(int argc, char** argv) 
+{
+    if (argc < 2) 
+    {
+        std::cerr << "Usage: " << argv[0] << " <fg_video_path> [bg_video_path]" << std::endl;
+        return -1;
+    }
+
+    cv::VideoCapture fg(argv[1]);
+    if (!fg.isOpened()) 
+    {
+        std::cerr << "Error: Could not open foreground video: " << argv[1] << std::endl;
+        return -1;
+    }
+
+    bool has_bg = false;
+    cv::VideoCapture bg;
+    if (argc >= 3) 
+    {
+        bg.open(argv[2]);
+        if (bg.isOpened()) 
+        {
+            has_bg = true;
+        }
+        else 
+        {
+            std::cout << "Warning: Could not open background video: " << argv[2] << ". Using black background instead." << std::endl;
+        }
+    }
 
     double source_fps = fg.get(cv::CAP_PROP_FPS);
     if (source_fps <= 0) source_fps = 30.0;
     auto frame_duration = std::chrono::microseconds((long long)(1000000.0 / source_fps));
 
     cv::Mat fg_frame, bg_frame;
-    fg >> fg_frame; bg >> bg_frame;
-    fg.set(cv::CAP_PROP_POS_FRAMES, 0); bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+    fg >> fg_frame;
+    if (fg_frame.empty()) 
+    {
+        std::cerr << "Error: Foreground video has no frames." << std::endl;
+        return -1;
+    }
+
+    if (has_bg) 
+    {
+        bg >> bg_frame;
+        if (bg_frame.empty()) 
+        {
+            has_bg = false;
+        }
+    } 
+
+    // reset back to 0
+    fg.set(cv::CAP_PROP_POS_FRAMES, 0);
+    if (has_bg) 
+    {
+        bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+    }
 
     int w = fg_frame.cols;
     int h = fg_frame.rows;
@@ -34,13 +88,13 @@ int main()
 
     VideoProcessor processor(w, h, c);
     
-    cv::namedWindow("Video Frame", cv::WINDOW_AUTOSIZE);
-    cv::createTrackbar("Blur Sigma", "Video Frame", nullptr, 100);
-    cv::setTrackbarPos("Blur Sigma", "Video Frame", 30);
-
     GaussianBlurFilter* blurFilter = new GaussianBlurFilter(w, h, c, 3.0f, true);
     processor.addFilter(blurFilter);
     processor.addFilter(new ChromaKeyFilter(120.0f, 30.0f, 80.0f, 0.3f, 0.3f));
+
+    cv::namedWindow("Video Frame", cv::WINDOW_AUTOSIZE);
+    cv::createTrackbar("Blur Sigma", "Video Frame", nullptr, 100, onBlurTrackbar, blurFilter);
+    cv::setTrackbarPos("Blur Sigma", "Video Frame", 30);
     
     // processor.addFilter(new GrayscaleFilter());
     // processor.addFilter(new GrayscaleFilter());
@@ -51,14 +105,34 @@ int main()
     // processor.addFilter(new MotionBlurFilter(w, h, c, 0.8f));
     // processor.addFilter(new FisheyeFilter(w, h, c, 0.5f));
 
-    fg >> fg_frame; bg >> bg_frame;
-    if(fg_frame.size() != bg_frame.size()) 
-        cv::resize(bg_frame, bg_frame, fg_frame.size());
+    // Frame 0
+    fg >> fg_frame;
+    if (has_bg) 
+    {
+        bg >> bg_frame;
+        if (bg_frame.empty()) 
+        {
+            bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+            bg >> bg_frame;
+        }
+        if (fg_frame.size() != bg_frame.size()) 
+            cv::resize(bg_frame, bg_frame, fg_frame.size());
+    } 
     processor.processFrameAsync(fg_frame.data, bg_frame.data, 0);
 
-    fg >> fg_frame; bg >> bg_frame;
-    if(fg_frame.size() != bg_frame.size()) 
-        cv::resize(bg_frame, bg_frame, fg_frame.size());
+    // Frame 1
+    fg >> fg_frame;
+    if (has_bg) 
+    {
+        bg >> bg_frame;
+        if (bg_frame.empty()) 
+        {
+            bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+            bg >> bg_frame;
+        }
+        if (fg_frame.size() != bg_frame.size()) 
+            cv::resize(bg_frame, bg_frame, fg_frame.size());
+    } 
     processor.processFrameAsync(fg_frame.data, bg_frame.data, 1);
 
     int displayStream = 0;
@@ -75,22 +149,21 @@ int main()
         if (!isPaused) 
         {
             fg >> fg_frame; 
-            bg >> bg_frame;
-            
             if (fg_frame.empty()) break;
-            if (bg_frame.empty()) 
+            
+            if (has_bg) 
             {
-                bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-                bg >> bg_frame; 
-            }
-            if (fg_frame.size() != bg_frame.size()) 
-                cv::resize(bg_frame, bg_frame, fg_frame.size());
+                bg >> bg_frame;
+                if (bg_frame.empty()) 
+                {
+                    bg.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    bg >> bg_frame; 
+                }
+                if (fg_frame.size() != bg_frame.size()) 
+                    cv::resize(bg_frame, bg_frame, fg_frame.size());
+            } 
         }
 
-        int current_blur = cv::getTrackbarPos("Blur Sigma", "Video Frame");
-        float sigma = (float)current_blur / 10.0f;
-        if (sigma < 0.1f) sigma = 0.1f;
-        blurFilter->updateParameters({{"gaussian_sigma", sigma}});
 
         processor.processFrameAsync(fg_frame.data, bg_frame.data, queueStream);
 

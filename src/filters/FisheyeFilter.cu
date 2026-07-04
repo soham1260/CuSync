@@ -1,4 +1,4 @@
-#include "FisheyeFilter.h"
+#include "../include/filters/FisheyeFilter.h"
 
 __global__ void fisheyeKernel(unsigned char* d_temp, unsigned char* d_out, int width, int height, int channels, float distortion) 
 {

@@ -1,4 +1,4 @@
-#include "GrayscaleFilter.h"
+#include "../include/filters/GrayscaleFilter.h"
 
 // https://www.grayscaleimage.com/three-algorithms-for-converting-color-to-grayscale/
 __global__ void grayscaleKernel(unsigned char* d_image, int width, int height, int channels) 

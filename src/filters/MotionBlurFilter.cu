@@ -1,4 +1,4 @@
-#include "MotionBlurFilter.h"
+#include "../include/filters/MotionBlurFilter.h"
 
 __global__ void motionBlurKernel(unsigned char* d_image, unsigned char* d_history, int width, int height, int channels, float trailStrength) 
 {

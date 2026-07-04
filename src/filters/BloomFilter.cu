@@ -1,5 +1,6 @@
-#include "BloomFilter.h"
-#include "GaussianBlurFilter.h"
+#include "../include/filters/BloomFilter.h"
+#include "../include/filters/GaussianBlurFilter.h"
+
 __global__ void brightPassKernel(unsigned char* d_in, unsigned char* d_out, int width, int height, int channels, float threshold) 
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;

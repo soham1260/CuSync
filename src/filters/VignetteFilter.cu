@@ -1,4 +1,4 @@
-#include "VignetteFilter.h"
+#include "../include/filters/VignetteFilter.h"
 
 __global__ void vignetteKernel(unsigned char* d_image, int width, int height, int channels, float radius, float intensity) 
 {

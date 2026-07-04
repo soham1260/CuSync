@@ -1,5 +1,4 @@
-#include "ChromaKeyFilter.h"
-#include <device_launch_parameters.h>
+#include "../include/filters/ChromaKeyFilter.h"
 #include <cmath>
 
 ChromaKeyFilter::ChromaKeyFilter(float targetHue, float innerLimit, float outerLimit, float saturationThresh, float valueThresh) : targetHue(targetHue), innerLimit(innerLimit), outerLimit(outerLimit), saturationThresh(saturationThresh), valueThresh(valueThresh) {}
@@ -53,6 +52,8 @@ __global__ void processPixelKernel(unsigned char* d_image, unsigned char* d_bg, 
 
 void ChromaKeyFilter::process(unsigned char* d_fg, unsigned char* d_bg, int width, int height, int channels, cudaStream_t stream) 
 {
+    if (d_bg == nullptr) return;
+
     dim3 threads(16, 16);
     dim3 blocks((width + threads.x - 1) / threads.x, (height + threads.y - 1) / threads.y);
 

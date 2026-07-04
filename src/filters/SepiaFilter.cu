@@ -1,4 +1,4 @@
-#include "SepiaFilter.h"
+#include "../include/filters/SepiaFilter.h"
 
 // https://stackoverflow.com/questions/1061093/how-is-a-sepia-tone-created
 __global__ void sepiaKernel(unsigned char* d_image, int width, int height, int channels) 

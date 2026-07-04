@@ -39,14 +39,19 @@ void VideoProcessor::addFilter(VideoFilter* filter)
 void VideoProcessor::processFrameAsync(unsigned char* fg_data, unsigned char* bg_data, int streamIdx) 
 {
     memcpy(h_pinned_fg[streamIdx], fg_data, g_size);
-    memcpy(h_pinned_bg[streamIdx], bg_data, g_size);
-
     cudaMemcpyAsync(d_fg[streamIdx], h_pinned_fg[streamIdx], g_size, cudaMemcpyHostToDevice, streams[streamIdx]);
-    cudaMemcpyAsync(d_bg[streamIdx], h_pinned_bg[streamIdx], g_size, cudaMemcpyHostToDevice, streams[streamIdx]);
+
+    unsigned char* current_d_bg = nullptr;
+    if (bg_data != nullptr) 
+    {
+        memcpy(h_pinned_bg[streamIdx], bg_data, g_size);
+        cudaMemcpyAsync(d_bg[streamIdx], h_pinned_bg[streamIdx], g_size, cudaMemcpyHostToDevice, streams[streamIdx]);
+        current_d_bg = d_bg[streamIdx];
+    }
 
     for (auto& filter : filters) 
     {
-        filter->process(d_fg[streamIdx], d_bg[streamIdx], g_width, g_height, g_channels, streams[streamIdx]);
+        filter->process(d_fg[streamIdx], current_d_bg, g_width, g_height, g_channels, streams[streamIdx]);
     }
 
     cudaMemcpyAsync(h_pinned_fg[streamIdx], d_fg[streamIdx], g_size, cudaMemcpyDeviceToHost, streams[streamIdx]);

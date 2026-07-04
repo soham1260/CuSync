@@ -1,4 +1,4 @@
-#include "GaussianBlurFilter.h"
+#include "../include/filters/GaussianBlurFilter.h"
 
 #define TILE_SIZE 16
 
@@ -177,6 +177,8 @@ GaussianBlurFilter::~GaussianBlurFilter()
 
 void GaussianBlurFilter::process(unsigned char* d_fg, unsigned char* d_bg, int width, int height, int channels, cudaStream_t stream) 
 {
+    if (processBackground && d_bg == nullptr) return;
+
     unsigned char* target = NULL;
     if(processBackground)
         target = d_bg;
