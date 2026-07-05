@@ -12,4 +12,9 @@ class NvDecPipeline
         FFmpegDemuxer* demuxer;
         NvDecoder* decoder;
         uint8_t* d_bgrFrame; // Device buffer for BGR output
+        int width, height;
+        bool finished;
+
+        // Decoded Nv12 frames
+        std::vector<uint8_t*> pendingFrames;
 };
