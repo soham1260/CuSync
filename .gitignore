@@ -3,3 +3,6 @@
 *.jpg
 *.txt
 /temp
+/ffmpeg*
+/Video_Codec_SDK*
+/.vscode
