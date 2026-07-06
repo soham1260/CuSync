@@ -13,8 +13,10 @@ class NvDecPipeline
         NvDecoder* decoder;
         uint8_t* d_bgrFrame; // Device buffer for BGR output
         int width, height;
+        int nv12Pitch;
         bool finished;
 
         // Decoded Nv12 frames
         std::vector<uint8_t*> pendingFrames;
+        int pendingIdx;
 };
