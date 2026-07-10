@@ -12,6 +12,8 @@
 #include "PixelationFilter.h"
 #include "MotionBlurFilter.h"
 #include "FisheyeFilter.h"
+#include "../include/NvDecPipeline.h"
+#include "../include/NvVideoProcessor.h"
 
 void onBlurTrackbar(int pos, void* userdata) 
 {
@@ -32,61 +34,35 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    cv::VideoCapture fg(argv[1]);
-    if (!fg.isOpened()) 
-    {
-        std::cerr << "Error: Could not open foreground video: " << argv[1] << std::endl;
-        return -1;
-    }
+    // Explicit cuda context needed by decoder
+    CUcontext cuContext = NULL;
+    cuInit(0);
+    CUdevice cuDevice = 0;
+    CUctxCreateParams params = { NULL, NULL, 0 };
+    cuCtxCreate(&cuContext,&params, 0, cuDevice);
 
-    bool has_bg = false;
-    cv::VideoCapture bg;
+    // Create pipelines for fetching frames
+    NvDecPipeline* fgPipe = createPipeline(argv[1], cuContext);
+    NvDecPipeline* bgPipe = NULL;
     if (argc >= 3) 
     {
-        bg.open(argv[2]);
-        if (bg.isOpened()) 
-        {
-            has_bg = true;
-        }
-        else 
-        {
-            std::cout << "Warning: Could not open background video: " << argv[2] << ". Using black background instead." << std::endl;
-        }
+        bgPipe = createPipeline(argv[2], cuContext);
     }
 
-    double source_fps = fg.get(cv::CAP_PROP_FPS);
+    // Get source FPS from demuxer instead of OpenCV
+    AVStream* videoStream = fgPipe->demuxer->GetVideoStream();
+    double source_fps = 30.0;
+    if (videoStream && videoStream->avg_frame_rate.den > 0)
+    {
+        source_fps = av_q2d(videoStream->avg_frame_rate);
+    }
     if (source_fps <= 0) source_fps = 30.0;
     auto frame_duration = std::chrono::microseconds((long long)(1000000.0 / source_fps));
 
-    cv::Mat fg_frame, bg_frame;
-    fg >> fg_frame;
-    if (fg_frame.empty()) 
-    {
-        std::cerr << "Error: Foreground video has no frames." << std::endl;
-        return -1;
-    }
-
-    if (has_bg) 
-    {
-        bg >> bg_frame;
-        if (bg_frame.empty()) 
-        {
-            has_bg = false;
-        }
-    } 
-
-    // reset back to 0
-    fg.set(cv::CAP_PROP_POS_FRAMES, 0);
-    if (has_bg) 
-    {
-        bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-    }
-
-    int w = fg_frame.cols;
-    int h = fg_frame.rows;
-    int c = fg_frame.channels();
-
-    VideoProcessor processor(w, h, c);
+    NvVideoProcessor processor(fgPipe->width, fgPipe->height, 3);
+    int w = fgPipe->width;
+    int h = fgPipe->height;
+    int c = 3;
     
     GaussianBlurFilter* blurFilter = new GaussianBlurFilter(w, h, c, 3.0f, true);
     processor.addFilter(blurFilter);
@@ -106,34 +82,14 @@ int main(int argc, char** argv)
     // processor.addFilter(new FisheyeFilter(w, h, c, 0.5f));
 
     // Frame 0
-    fg >> fg_frame;
-    if (has_bg) 
-    {
-        bg >> bg_frame;
-        if (bg_frame.empty()) 
-        {
-            bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-            bg >> bg_frame;
-        }
-        if (fg_frame.size() != bg_frame.size()) 
-            cv::resize(bg_frame, bg_frame, fg_frame.size());
-    } 
-    processor.processFrameAsync(fg_frame.data, bg_frame.data, 0);
+    uint8_t* d_fg_frame = getNextBgrFrame(fgPipe);
+    uint8_t* d_bg_frame = bgPipe ? getNextBgrFrame(bgPipe) : NULL;
+    if (d_fg_frame) processor.processFrameAsync(d_fg_frame, d_bg_frame, 0);
 
     // Frame 1
-    fg >> fg_frame;
-    if (has_bg) 
-    {
-        bg >> bg_frame;
-        if (bg_frame.empty()) 
-        {
-            bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-            bg >> bg_frame;
-        }
-        if (fg_frame.size() != bg_frame.size()) 
-            cv::resize(bg_frame, bg_frame, fg_frame.size());
-    } 
-    processor.processFrameAsync(fg_frame.data, bg_frame.data, 1);
+    d_fg_frame = getNextBgrFrame(fgPipe);
+    d_bg_frame = bgPipe ? getNextBgrFrame(bgPipe) : NULL;
+    if (d_fg_frame) processor.processFrameAsync(d_fg_frame, d_bg_frame, 1);
 
     int displayStream = 0;
     int queueStream = 2;
@@ -148,24 +104,13 @@ int main(int argc, char** argv)
         // Read next frame only if not paused
         if (!isPaused) 
         {
-            fg >> fg_frame; 
-            if (fg_frame.empty()) break;
-            
-            if (has_bg) 
-            {
-                bg >> bg_frame;
-                if (bg_frame.empty()) 
-                {
-                    bg.set(cv::CAP_PROP_POS_FRAMES, 0);
-                    bg >> bg_frame; 
-                }
-                if (fg_frame.size() != bg_frame.size()) 
-                    cv::resize(bg_frame, bg_frame, fg_frame.size());
-            } 
+            d_fg_frame = getNextBgrFrame(fgPipe);
+            if (!d_fg_frame) break;
+
+            d_bg_frame = bgPipe ? getNextBgrFrame(bgPipe) : NULL;
         }
 
-
-        processor.processFrameAsync(fg_frame.data, bg_frame.data, queueStream);
+        processor.processFrameAsync(d_fg_frame, d_bg_frame, queueStream); // frame is already in GPU
 
         unsigned char* processed_data = processor.syncAndGetFrame(displayStream);
 
@@ -204,8 +149,8 @@ int main(int argc, char** argv)
         displayStream = (displayStream + 1) % 3;
     }
 
-    fg.release(); 
-    bg.release(); 
+    delete fgPipe;
+    delete bgPipe; 
     cv::destroyAllWindows();
     return 0;
 }

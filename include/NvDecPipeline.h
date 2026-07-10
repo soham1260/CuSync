@@ -9,6 +9,8 @@
 class NvDecPipeline
 {
     public:
+        NvDecPipeline();
+        ~NvDecPipeline();
         FFmpegDemuxer* demuxer;
         NvDecoder* decoder;
         uint8_t* d_bgrFrame; // Device buffer for BGR output
@@ -20,3 +22,6 @@ class NvDecPipeline
         std::vector<uint8_t*> pendingFrames;
         int pendingIdx;
 };
+
+NvDecPipeline* createPipeline(const char* filePath, CUcontext cuContext);
+uint8_t* getNextBgrFrame(NvDecPipeline* pipe);
